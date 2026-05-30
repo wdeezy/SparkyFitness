@@ -56,16 +56,16 @@ When set, SparkyFitness tunnels FatSecret's OAuth, search, nutrient, and barcode
 
 If you don't run your own static-IP host, a managed proxy gives you stable IPs to whitelist:
 
-| Provider | Notes |
-| --- | --- |
-| [QuotaGuard Static](https://www.quotaguard.com/) | **Recommended.** Publishes a small set of dedicated static IPs to whitelist, gives a ready-to-use HTTP proxy URL, and has a free trial tier. Designed for exactly this "whitelist my app's egress IP" use case. |
-| [Fixie](https://usefixie.com/) | Similar HTTP proxy with static IPs and a free tier, but free-tier request limits are lower. |
+| Provider | Cost | Notes |
+| --- | --- | --- |
+| [Fixie](https://usefixie.com/) | **Free tier ($0/mo)**, paid plans above it | **Recommended for a free option.** Genuine free tier (with request/bandwidth caps), no commitment, HTTP/HTTPS proxy URL ready to drop in. |
+| [QuotaGuard Static](https://www.quotaguard.com/) | From **$19/mo** (free trial only, no free tier) | Dedicated static IPs and a clean allow-list workflow. Worth it if you outgrow Fixie's free-tier caps; not free to run long-term. |
 
-**Recommendation:** Use **QuotaGuard Static**. Its dedicated static IPs and clear allow-list workflow map directly onto FatSecret's whitelisting model, and because SparkyFitness caches FatSecret responses for several minutes, request volume stays low enough for an entry-level plan.
+**Recommendation:** Start with **Fixie's free tier**. It's the only no-cost path, and because SparkyFitness caches FatSecret responses for several minutes, request volume stays low enough to fit the free limits. Move to QuotaGuard Static only if you exceed Fixie's caps and want dedicated IPs.
 
 **Setup steps:**
 
-1. Sign up at QuotaGuard (or Fixie) and create a Static IP resource.
+1. Sign up at Fixie (or QuotaGuard) and create a Static IP resource.
 2. Copy the proxy URL it gives you (format `http://user:password@host:port`).
 3. Copy the provider's published static IP(s) and add **all of them** to your FatSecret app's allowed IP list.
 4. Set `FATSECRET_PROXY_URL` to the proxy URL and restart the server.

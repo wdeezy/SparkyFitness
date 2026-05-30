@@ -2,7 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { mapFatSecretSearchItem } from '../integrations/fatsecret/fatsecretService.js';
 import { mapFatSecretFood } from '../integrations/fatsecret/fatsecretService.js';
 import { assertNoFatSecretApiError } from '../integrations/fatsecret/fatsecretService.js';
+import { redactProxyUrl } from '../integrations/fatsecret/fatsecretService.js';
 describe('FatSecret Service Mapping', () => {
+  describe('redactProxyUrl', () => {
+    it('masks embedded credentials before logging', () => {
+      const redacted = redactProxyUrl('http://user:s3cret@proxy.fixie.com:80');
+      expect(redacted).not.toContain('s3cret');
+      expect(redacted).not.toContain('user');
+      expect(redacted).toContain('proxy.fixie.com');
+    });
+    it('leaves credential-less URLs intact', () => {
+      expect(redactProxyUrl('http://10.0.0.5:3128')).toContain('10.0.0.5:3128');
+    });
+    it('returns a safe placeholder for malformed input', () => {
+      expect(redactProxyUrl('not a url')).toBe('[invalid FATSECRET_PROXY_URL]');
+    });
+  });
   describe('assertNoFatSecretApiError', () => {
     it('throws a descriptive error for the IP restriction envelope', () => {
       const data = {

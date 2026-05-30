@@ -1,6 +1,7 @@
 import { log } from '../config/logging.js';
 import {
   getFatSecretAccessToken,
+  getFatSecretDispatcher,
   assertNoFatSecretApiError,
   foodNutrientCache,
   CACHE_DURATION_MS,
@@ -30,6 +31,8 @@ async function searchFatSecretFoods(
     log('info', `FatSecret Search URL: ${searchUrl}`);
     const response = await fetch(searchUrl, {
       method: 'GET',
+      // @ts-expect-error TS(2769): No overload matches this call.
+      dispatcher: getFatSecretDispatcher(),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -90,6 +93,8 @@ async function getFatSecretNutrients(
     log('info', `FatSecret Nutrients URL: ${nutrientsUrl}`);
     const response = await fetch(nutrientsUrl, {
       method: 'GET',
+      // @ts-expect-error TS(2769): No overload matches this call.
+      dispatcher: getFatSecretDispatcher(),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',

@@ -1,4 +1,5 @@
 import { log } from '../../config/logging.js';
+import { ProxyAgent } from 'undici';
 // Cache tokens by scope
 const tokensByScope = new Map();
 // In-memory cache for FatSecret food nutrient data
@@ -7,6 +8,61 @@ const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 const FATSECRET_OAUTH_TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
 const FATSECRET_API_BASE_URL = 'https://platform.fatsecret.com/rest';
 const MAX_REASONABLE_METRIC_SERVING_SIZE = 1000;
+
+// FatSecret requires the caller's outbound IP to be whitelisted. When
+// SparkyFitness runs on a host with a dynamic egress IP (e.g. Railway's Hobby
+// plan), set FATSECRET_PROXY_URL to a static-IP forward proxy and FatSecret
+// traffic will be tunneled through it. Other providers (OpenFoodFacts, USDA,
+// etc.) are unaffected. Leaving the variable unset keeps all traffic direct.
+//
+// Supported format: http(s)://[username:password@]host:port
+// (managed proxies like Fixie/QuotaGuard embed credentials in the URL).
+let cachedProxyDispatcher: ProxyAgent | null | undefined;
+// Hide any embedded credentials before the proxy URL touches the logs.
+function redactProxyUrl(proxyUrl: string) {
+  try {
+    const parsed = new URL(proxyUrl);
+    if (parsed.username || parsed.password) {
+      parsed.username = '***';
+      parsed.password = '';
+    }
+    return parsed.toString();
+  } catch {
+    return '[invalid FATSECRET_PROXY_URL]';
+  }
+}
+function createProxyDispatcher(proxyUrl: string): ProxyAgent {
+  const parsed = new URL(proxyUrl);
+  // undici's ProxyAgent does not derive Proxy-Authorization from the URL
+  // userinfo on its own, so build the Basic token explicitly when present.
+  if (parsed.username || parsed.password) {
+    const token =
+      'Basic ' +
+      Buffer.from(
+        `${decodeURIComponent(parsed.username)}:${decodeURIComponent(parsed.password)}`
+      ).toString('base64');
+    const uri = `${parsed.protocol}//${parsed.host}${parsed.pathname}${parsed.search}`;
+    return new ProxyAgent({ uri, token });
+  }
+  return new ProxyAgent(proxyUrl);
+}
+// Returns the proxy dispatcher to pass as fetch's `dispatcher` option, or
+// undefined to use the default (direct) dispatcher. Resolved once and cached.
+function getFatSecretDispatcher(): ProxyAgent | undefined {
+  if (cachedProxyDispatcher === undefined) {
+    const proxyUrl = process.env.FATSECRET_PROXY_URL?.trim();
+    if (proxyUrl) {
+      cachedProxyDispatcher = createProxyDispatcher(proxyUrl);
+      log(
+        'info',
+        `FatSecret outbound traffic routed through proxy: ${redactProxyUrl(proxyUrl)}`
+      );
+    } else {
+      cachedProxyDispatcher = null;
+    }
+  }
+  return cachedProxyDispatcher ?? undefined;
+}
 // Placeholder for serving unit aliases. In a real application, this would be more comprehensive.
 const SERVING_UNIT_ALIASES = {
   g: 'g',
@@ -150,6 +206,8 @@ async function getFatSecretAccessToken(
     );
     const response = await fetch(FATSECRET_OAUTH_TOKEN_URL, {
       method: 'POST',
+      // @ts-expect-error TS(2769): No overload matches this call.
+      dispatcher: getFatSecretDispatcher(),
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
@@ -224,6 +282,8 @@ async function searchFatSecretByBarcode(
     log('info', `FatSecret Barcode Lookup URL: ${url}`);
     const response = await fetch(url, {
       method: 'GET',
+      // @ts-expect-error TS(2769): No overload matches this call.
+      dispatcher: getFatSecretDispatcher(),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -490,6 +550,8 @@ function mapFatSecretSearchItem(item: any) {
   };
 }
 export { getFatSecretAccessToken };
+export { getFatSecretDispatcher };
+export { redactProxyUrl };
 export { assertNoFatSecretApiError };
 export { searchFatSecretByBarcode };
 export { mapFatSecretFood };
@@ -499,6 +561,8 @@ export { CACHE_DURATION_MS };
 export { FATSECRET_API_BASE_URL };
 export default {
   getFatSecretAccessToken,
+  getFatSecretDispatcher,
+  redactProxyUrl,
   assertNoFatSecretApiError,
   searchFatSecretByBarcode,
   mapFatSecretFood,

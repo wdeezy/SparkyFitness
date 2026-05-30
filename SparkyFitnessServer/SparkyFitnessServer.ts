@@ -106,7 +106,14 @@ const app = express();
 app.set('trust proxy', 1); // Trust the first proxy immediately in front of me just internal nginx. external not required.
 // 304s from ETag revalidation break the iOS mobile app (#1353).
 app.set('etag', false);
-const PORT = process.env.SPARKY_FITNESS_SERVER_PORT || 3010;
+const PORT = Number(process.env.SPARKY_FITNESS_SERVER_PORT) || 3010;
+// Bind address. Default to the IPv6 unspecified address ("::"), which on Linux
+// is dual-stack and also accepts IPv4 connections. This is required for hosts
+// whose private network is IPv6-only (e.g. Railway's *.railway.internal):
+// binding IPv4-only there makes the server unreachable and reverse proxies hang
+// until they time out. Override with SPARKY_FITNESS_SERVER_BIND_HOST=0.0.0.0 on
+// the rare host that has IPv6 disabled entirely.
+const HOST = process.env.SPARKY_FITNESS_SERVER_BIND_HOST || '::';
 console.log(
   `DEBUG: SPARKY_FITNESS_FRONTEND_URL is: ${process.env.SPARKY_FITNESS_FRONTEND_URL}`
 );
@@ -612,9 +619,11 @@ applyMigrations()
       );
       if (adminUser) await userRepository.updateUserRole(adminUser.id, 'admin');
     }
-    const server = app.listen(PORT, () => {
-      console.log(`DEBUG: Server started and listening on port ${PORT}`);
-      log('info', `SparkyFitnessServer listening on port ${PORT}`);
+    const server = app.listen(PORT, HOST, () => {
+      console.log(
+        `DEBUG: Server started and listening on ${HOST} port ${PORT}`
+      );
+      log('info', `SparkyFitnessServer listening on ${HOST}:${PORT}`);
       console.log('View API documentation at: /api/api-docs/swagger');
     });
     // Fix for reverse proxies using HTTP keepalive (e.g. Traefik, Caddy)

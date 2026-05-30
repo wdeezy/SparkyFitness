@@ -496,6 +496,14 @@ build problems, **Deploy Logs** for run-time problems).
   name + `.railway.internal`, with `SPARKY_FITNESS_SERVER_PORT=3010`. After the
   backend is healthy, **Redeploy the frontend**.
 
+  If the backend logs show it started fine (`listening on ::3010`) but every
+  `/api/...` request still hangs ~60 seconds before returning 502, the backend is
+  listening on the wrong network stack. Railway's private network
+  (`*.railway.internal`) is **IPv6-only**, so the backend must listen on `::`.
+  The server now does this by default — make sure the backend is built from
+  up-to-date code and **Redeploy** it. (On the rare host with IPv6 disabled, set
+  `SPARKY_FITNESS_SERVER_BIND_HOST=0.0.0.0` on the backend instead.)
+
 - **Public address won't open at all.**
   Make sure you generated the domain on the **frontend** and set its port to
   **8080** (matching `NGINX_LISTEN_PORT=8080`). Re-check **Settings → Networking**.

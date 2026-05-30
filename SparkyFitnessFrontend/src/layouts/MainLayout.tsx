@@ -12,6 +12,7 @@ import {
   LogOut,
   Dumbbell, // Used for Exercises
   Target, // Used for Goals
+  Syringe, // Used for Peptides
   Shield,
   Plus,
   X,
@@ -104,6 +105,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onShowAboutDialog }) => {
           icon: Dumbbell,
         },
         { value: 'goals', label: 'Goals', icon: Target },
+        { value: 'peptides', label: 'Peptides', icon: Syringe },
         {
           value: 'foodlog',
           label: t('nav.foodLog', 'Food Log'),
@@ -197,6 +199,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onShowAboutDialog }) => {
           icon: Dumbbell,
         },
         { value: '/goals', label: t('nav.goals'), icon: Target },
+        { value: '/peptides', label: 'Peptides', icon: Syringe },
         { value: '/settings', label: t('nav.settings'), icon: SettingsIcon }
       );
     } else {

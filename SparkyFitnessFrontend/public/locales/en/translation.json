@@ -1011,7 +1011,14 @@
     "errorOccurred": "An Error Occurred",
     "confirm": "Confirm",
     "notApplicable": "N/A",
-    "totalSets": "Total Sets"
+    "totalSets": "Total Sets",
+    "loading": "Loading..."
+  },
+  "peptides": {
+    "summaryTitle": "Peptides",
+    "summaryEmpty": "No peptides tracked. Tap to add one.",
+    "percentRemaining": "{{percent}}% of last dose",
+    "noInjections": "No injections logged"
   },
   "diary": {
     "nutritionSummary": "Nutrition Summary",

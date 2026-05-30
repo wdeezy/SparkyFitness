@@ -41,6 +41,10 @@ jest.mock('@/pages/Diary/WaterIntake', () => () => (
   <div data-testid="water-intake" />
 ));
 
+jest.mock('@/pages/Diary/PeptideSummary', () => () => (
+  <div data-testid="peptide-summary" />
+));
+
 jest.mock('@/pages/Goals/EditGoalsForToday', () => () => (
   <button type="button">Edit Goals</button>
 ));

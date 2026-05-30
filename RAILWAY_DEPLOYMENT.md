@@ -1,12 +1,19 @@
-# Deploying SparkyFitness on Railway — A Complete Beginner's Guide
+# Deploying *Your* SparkyFitness on Railway — A Complete Beginner's Guide
 
-This guide walks you through putting SparkyFitness on the internet using a service
-called **Railway**. It is written for someone who has **never** done this before.
-Every button click and every box you need to fill in is spelled out. You do not
-need to install anything on your computer, and you do not need to type any
-commands. Everything happens in your web browser.
+This guide puts **your own version** of SparkyFitness on the internet using a
+service called **Railway** — including your custom features (peptide / injection
+tracking with half-life decay estimation, and anything else on your branch).
 
-Set aside about **45–60 minutes** the first time.
+It does this by having Railway **build the app directly from your GitHub code**,
+so whatever you've written is what runs. It does **not** use the original authors'
+prebuilt copies (those would not contain your changes).
+
+This is written for someone who has never done this before. Every button click and
+every box to fill in is spelled out. You do not need to install anything or type
+any commands on your own computer — everything happens in your web browser.
+
+Set aside about **60–75 minutes** the first time (the build steps take a few
+minutes each).
 
 ---
 
@@ -17,194 +24,217 @@ a restaurant:
 
 | The piece | Restaurant analogy | What it does |
 | --- | --- | --- |
-| **Database** | The pantry/fridge | Stores all your data: food logs, weight, workouts. |
-| **Backend (server)** | The kitchen | Does the actual work: calculations, saving data, talking to Fitbit/Garmin/etc. |
-| **Frontend** | The dining room + waiter | The website you actually see and click on. It takes your requests to the kitchen. |
+| **Database** | The pantry/fridge | Stores all your data: food logs, weight, workouts, **and your peptide log**. |
+| **Backend (server)** | The kitchen | Does the work: calculations, saving data, **the half-life decay math**, talking to Fitbit/Garmin/etc. |
+| **Frontend** | The dining room + waiter | The website you see and click on, **including your Peptides page**. |
 
-On Railway you will create **one "Project"** (think of it as one restaurant
-building) and put all three pieces inside it. The three pieces talk to each other
-privately inside the building. Only the **Frontend** (dining room) gets a public
-door that you and your phone can walk through.
+On Railway you create **one "Project"** (one restaurant building) and put all three
+pieces inside it. They talk to each other privately. Only the **Frontend** gets a
+public door that you and your phone walk through.
 
 ```
         Internet (you, your phone)
                  │
                  ▼
         ┌─────────────────┐   public web address (https://....up.railway.app)
-        │    Frontend     │
+        │    Frontend     │   built from YOUR code (docker/Dockerfile.frontend)
         │  (the website)  │
         └────────┬────────┘
                  │  private, inside Railway only
                  ▼
         ┌─────────────────┐
-        │    Backend      │
+        │    Backend      │   built from YOUR code (docker/Dockerfile.backend)
         │  (the server)   │
         └────────┬────────┘
                  │  private, inside Railway only
                  ▼
         ┌─────────────────┐
-        │    Database     │
+        │    Database     │   Railway's managed PostgreSQL
         │  (PostgreSQL)   │
         └─────────────────┘
 ```
 
-You will **not** be building the programs from scratch. The SparkyFitness authors
-have already built and published ready-to-run copies (called "images"). You just
-tell Railway to download and run them. The two image names you will use are:
+### Why "build from your code" matters
 
-- Backend image: `codewithcj/sparkyfitness_server:latest`
-- Frontend image: `codewithcj/sparkyfitness:latest`
+Your custom work lives on a **branch** named **`claude/hopeful-gates-AyC4Q`** in
+your GitHub repository **`wdeezy/SparkyFitness`**. (A "branch" is just a named
+version of your code.) That branch contains, among other things:
 
-> **A note on jargon:** A **"Docker image"** is just a frozen, ready-to-run copy of
-> a program, packaged so it runs the same way anywhere. **"Deploy"** means "put it
-> online and start it running." A **"service"** on Railway is one running program.
-> A **"variable"** (or "environment variable") is a setting you type in — like a
-> password or a web address — that the program reads when it starts.
+- `SparkyFitnessServer/services/peptideService.ts`,
+  `models/peptideRepository.ts`, `routes/peptideRoutes.ts`,
+  `utils/halfLifeEngine.ts` — the peptide backend.
+- `SparkyFitnessServer/db/migrations/20260530120000_add_peptide_tracking.sql` —
+  the database change that **creates the peptide tables automatically** the first
+  time the backend starts. You do **not** have to run it by hand.
+- `SparkyFitnessFrontend/src/pages/Peptides/Peptides.tsx` and friends — the
+  Peptides web page.
+
+Railway will read this branch, **compile it into runnable programs**, and start
+them. That compiling step is called a **"build."**
+
+> **Jargon, defined once:**
+> - **Deploy** = put it online and start it running.
+> - **Service** = one running program on Railway (you'll have three).
+> - **Build** = turn your source code into a runnable program.
+> - **Dockerfile** = a recipe file that tells the builder how to assemble one
+>   program. Yours are `docker/Dockerfile.backend` and `docker/Dockerfile.frontend`.
+> - **Variable** (or "environment variable") = a setting you type in, like a
+>   password or web address, that a program reads when it starts.
+> - **Repo / repository** = your project's code storage on GitHub.
 
 ---
 
 ## Part 1 — What it will cost
 
-Railway charges based on how much computing power your programs actually use,
-plus a small base fee.
+Railway charges for the computing power your programs actually use, plus a small
+base fee.
 
-- Railway's cheapest paid plan ("Hobby") starts at about **US $5/month**, which
-  includes $5 of usage. A personal SparkyFitness instance used by one person
-  typically lands in the **$5–$20/month** range all-in (the three programs plus
-  the database).
-- This app is a good fit for Railway because it is an "always-on" app. Its
-  background tasks (a nightly backup, hourly syncing with Fitbit/Garmin/etc.)
-  are tiny and run inside a program that is already running, so they do **not**
-  cost extra in any meaningful way.
-- Railway shows you a live usage/cost meter, and you can set a **spending limit**
-  so you are never surprised (covered in Part 11).
+- Railway's cheapest paid plan ("Hobby") starts around **US $5/month** and includes
+  $5 of usage. A personal SparkyFitness used by one person typically runs
+  **$5–$20/month** all-in (three programs + database).
+- This app suits Railway well: it is "always-on," and its background tasks (a
+  nightly backup, hourly device syncing, your peptide calculations on demand) are
+  tiny and run inside an already-running program, so they don't add meaningful cost.
+- **One extra cost vs. using prebuilt images:** building from source uses some
+  build minutes each time you deploy. For a personal app this is negligible, but
+  it's why builds take a few minutes.
+- Railway shows a live cost meter, and you can set a hard **spending limit**
+  (Part 12) so you're never surprised.
 
 ---
 
 ## Part 2 — Gather what you'll need (have these ready before you start)
 
-Open a plain text document (Notepad, TextEdit, or the Notes app) and copy these
-in so you can paste them later. **Treat the three secret values like passwords —
-do not share them or post them anywhere public.**
+Open a plain text note (Notepad / TextEdit / Notes app) and copy these in so you
+can paste them later. **Treat the three secret values like passwords — never share
+them or post them publicly.**
 
-1. **Your email address** — the one you want to use to log in to SparkyFitness and
-   be the administrator.
+1. **Your email address** — the one you'll log in with and that becomes the admin.
 
-2. **Your timezone** — in "TZ" format. Find yours here:
-   https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-   (look at the **"TZ identifier"** column). Examples: `America/New_York`,
-   `America/Chicago`, `Europe/London`, `Australia/Sydney`. If unsure, use
+2. **Your timezone** in "TZ" format. Find yours here:
+   https://en.wikipedia.org/wiki/List_of_tz_database_time_zones (the **"TZ
+   identifier"** column), e.g. `America/New_York`, `Europe/London`. If unsure, use
    `Etc/UTC`.
 
-3. **An encryption key** — a long secret used to scramble your stored data.
-   Use this freshly generated value (or generate your own — see the box below):
-
+3. **An encryption key** (scrambles your stored data):
    ```
    PASTE_YOUR_64_CHARACTER_ENCRYPTION_KEY_HERE
    ```
 
-4. **An authentication secret** — used to keep you logged in securely.
-   Use this freshly generated value:
-
+4. **An authentication secret** (keeps logins secure):
    ```
    PASTE_YOUR_AUTH_SECRET_HERE
    ```
 
-5. **An app database password** — a password the kitchen uses to open the pantry.
-   Use this freshly generated value:
-
+5. **An app database password** (the limited key the app uses for daily work):
    ```
    PASTE_YOUR_APP_DB_PASSWORD_HERE
    ```
 
-> **Where do the secret values come from?** Whoever set up this guide for you may
-> have already generated values and given them to you in chat — paste those in
-> above. If you need to make your own and you have a Mac or Linux computer, open
-> the **Terminal** app and run `openssl rand -hex 32` for items 3 and 5, and
-> `openssl rand -base64 32` for item 4. If none of that means anything to you,
-> just ask whoever shared this guide to generate three values for you.
+> **Where do the secret values come from?** Whoever prepared this guide may have
+> already generated three values for you in chat — paste those above. To make your
+> own on a Mac/Linux computer, open the **Terminal** app and run
+> `openssl rand -hex 32` for items 3 and 5, and `openssl rand -base64 32` for item
+> 4.
 
-> **VERY IMPORTANT about secret #4 (the authentication secret):** Once your app is
-> live and people have turned on two-factor authentication, you must **never
-> change** this value. Changing it locks everyone out of their accounts. Pick it
-> once, save it safely, and leave it alone.
+> **VERY IMPORTANT about secret #4:** Once your app is live and anyone has turned on
+> two-factor authentication, **never change** this value — doing so locks everyone
+> out. Set it once, save it, leave it alone.
 
 ---
 
-## Part 3 — Create your Railway account
+## Part 3 — Connect Railway to your GitHub account
 
-1. In your web browser, go to **https://railway.com**.
-2. Click **Login** (top right), then choose to sign up. Signing up with your
-   **GitHub** account is easiest, but email works too. Follow the prompts.
-3. Railway may ask you to verify your account and add a payment method before it
-   will let you run apps publicly. Add a card when prompted — you will not be
-   charged beyond actual usage, and we will set a spending limit later.
+Because Railway will build from your code, it needs permission to read your repo.
+
+1. In your browser go to **https://railway.com** and click **Login** (top right).
+2. **Sign up / log in with GitHub** — this is the easiest path since your code is
+   on GitHub. Use the GitHub account that owns **`wdeezy/SparkyFitness`**.
+3. When GitHub asks, **authorize Railway**. If it offers a choice, you can grant
+   access to **only the `SparkyFitness` repository** rather than all repos — that's
+   fine and more private.
+4. Railway may ask you to verify your account and add a payment method before
+   running apps publicly. Add a card when prompted; you'll set a spending cap in
+   Part 12.
+
+> If you later find Railway can't see your repo, go to GitHub →
+> **Settings → Applications → Railway → Configure** and make sure `SparkyFitness`
+> is in the list of repositories Railway may access.
 
 ---
 
 ## Part 4 — Create your Project (the "building")
 
-1. After logging in you land on your **Dashboard**. Click the **New Project**
-   button (sometimes shown as **+ New** or **Create a New Project**).
-2. From the menu that appears, choose **Empty Project**.
-3. Railway opens a blank canvas. This canvas **is** your project. Each program
-   you add will appear here as a box.
-4. Give the project a friendly name: look at the top-left of the canvas, click the
-   auto-generated name (something like "perceptive-mercy"), and rename it to
+1. On your Railway **Dashboard**, click **New Project** (or **+ New**).
+2. Choose **Empty Project**.
+3. A blank canvas opens — this canvas **is** your project.
+4. Rename it: top-left, click the auto-generated name and change it to
    **sparkyfitness**. Press Enter.
 
-Keep this canvas tab open — you'll do everything else here.
+Keep this tab open — everything happens here.
 
 ---
 
 ## Part 5 — Add the Database (the "pantry")
 
-1. On the project canvas, click **+ Create** (or right-click empty space and
-   choose **Add a Service**, or press **Cmd/Ctrl + K**).
-2. Choose **Database**.
-3. Choose **Add PostgreSQL**.
-4. A new box labeled **Postgres** appears on your canvas. That's your database —
-   Railway sets it up automatically. **Leave its name as "Postgres"** (the exact
-   spelling matters later).
+1. On the canvas, click **+ Create** (or press **Cmd/Ctrl + K**).
+2. Choose **Database** → **Add PostgreSQL**.
+3. A box named **Postgres** appears. **Leave its name as exactly `Postgres`** — the
+   spelling matters in later steps.
 
-That's it for the database. You don't need to open it or configure anything inside
-it. The backend will create everything it needs the first time it runs.
-
-> If you ever need the database's connection details, click the **Postgres** box
-> and look at its **Variables** tab. You won't need to touch them by hand — the
-> next steps reference them automatically.
+Nothing else to configure. Your backend will create everything it needs (including
+the peptide tables) the first time it runs.
 
 ---
 
-## Part 6 — Add the Backend (the "kitchen")
+## Part 6 — Add the Backend (the "kitchen"), built from your code
 
-### 6a. Create the service from the published image
+### 6a. Create the service from your GitHub repo
 
-1. Click **+ Create** on the canvas again.
-2. Choose **Docker Image** (it may be listed under "Empty Service" → then set a
-   source, depending on Railway's current menu; look for the option that lets you
-   **deploy from a Docker image / image name**).
-3. In the box that asks for the image, type **exactly**:
-   ```
-   codewithcj/sparkyfitness_server:latest
-   ```
-   and confirm. Railway creates a new box for this service.
-4. Click the new box to open it. Click the service name at the top and **rename it
-   to exactly**:
+1. Click **+ Create** on the canvas.
+2. Choose **GitHub Repo** (also shown as **Deploy from GitHub repo**).
+3. Pick **`wdeezy/SparkyFitness`** from the list.
+4. Railway adds a box and may immediately try to build. That's fine — the first
+   attempt may fail because we haven't told it which recipe or branch to use yet.
+   We'll fix that now.
+5. Open the new box and **rename the service to exactly**:
    ```
    sparkyfitness-server
    ```
-   Press Enter. (The exact name matters — the frontend finds the backend by this
-   name.)
+   Press Enter. (The exact name matters — the frontend finds the backend by it.)
 
-### 6b. Tell the backend its settings (variables)
+### 6b. Point it at the right branch and the right build recipe
 
-1. With the **sparkyfitness-server** service open, click the **Variables** tab.
-2. You will add a list of settings. The fastest way: look for a **Raw Editor** (or
-   "Raw" / "Edit as text") button on the Variables tab — it lets you paste all
-   settings at once. Click it and paste the block below **exactly**, then save.
+1. With **sparkyfitness-server** open, click the **Settings** tab.
+2. Under the **Source** / **Service Source** area, set the **Branch** to the branch
+   that contains your code:
+   ```
+   claude/hopeful-gates-AyC4Q
+   ```
+   (If you have since merged your work into `main`, choose `main` instead. The point
+   is: pick the branch that has your peptide code.)
+3. Still in **Settings**, find the **Build** section. Leave **Root Directory**
+   **empty/blank** — your Dockerfiles expect the whole repository as their starting
+   point. (Do **not** set Root Directory to a subfolder; the build will break if you
+   do.)
+4. Now tell Railway which recipe to use. The most reliable way that works on every
+   version of Railway is to add a special **variable**. Open the **Variables** tab
+   and add this one line first (you'll add the rest in 6c):
+   ```
+   RAILWAY_DOCKERFILE_PATH=docker/Dockerfile.backend
+   ```
+   (If your Settings → Build page shows a **"Dockerfile Path"** text box instead,
+   you may type `docker/Dockerfile.backend` there — either method works; you only
+   need one.)
+
+### 6c. Add the backend's settings (variables)
+
+1. Still on the **Variables** tab of **sparkyfitness-server**, find the **Raw
+   Editor** (or "Raw" / "Edit as text") button so you can paste everything at once.
+2. Paste this block (it includes the Dockerfile line from 6b), then save:
 
    ```
+   RAILWAY_DOCKERFILE_PATH=docker/Dockerfile.backend
    SPARKY_FITNESS_DB_HOST=${{Postgres.PGHOST}}
    SPARKY_FITNESS_DB_PORT=${{Postgres.PGPORT}}
    SPARKY_FITNESS_DB_NAME=${{Postgres.PGDATABASE}}
@@ -222,253 +252,283 @@ it. The backend will create everything it needs the first time it runs.
    SPARKY_FITNESS_FRONTEND_URL=https://placeholder.invalid
    ```
 
-3. Now replace the four `PASTE_...` placeholders with your real values from Part 2
-   (app DB password, encryption key, auth secret, your email), and set `TZ` to your
-   timezone. Leave the `${{Postgres....}}` lines **exactly as written** — those are
-   special references that automatically pull the database's address and password
-   from the Postgres box you created. Leave `SPARKY_FITNESS_FRONTEND_URL` as the
-   placeholder for now; you'll fix it in Part 8 once you know your web address.
+3. Replace each `PASTE_...` with your real values from Part 2, and set `TZ`. Leave
+   every `${{Postgres....}}` line **exactly as written** — those automatically pull
+   the database's address and password from the Postgres box. Leave
+   `SPARKY_FITNESS_FRONTEND_URL` as the placeholder for now (fixed in Part 8). Save.
 
-4. Save the variables.
+> **What these mean:** the `DB_*` lines tell the kitchen where the pantry is and how
+> to open it (the `${{Postgres...}}` references are filled in by Railway). The app
+> uses the powerful database account only to set itself up, then **automatically
+> creates a limited account** named `sparky_app` (with the password you supplied)
+> for everyday work. `ADMIN_EMAIL` makes your account the administrator.
+> `DISABLE_SIGNUP=false` lets you register; you'll flip it to `true` afterward.
 
-> **What these mean, briefly:** The `DB_*` lines tell the kitchen where the pantry
-> is and how to open it. `APP_DB_USER`/`APP_DB_PASSWORD` is a limited-access pantry
-> key the app creates and uses for day-to-day work. `ADMIN_EMAIL` makes the account
-> you sign up with an administrator. `DISABLE_SIGNUP=false` lets you create your
-> account; you'll switch it to `true` afterward so strangers can't register.
+### 6d. Give the backend a permanent drive for uploaded images
 
-### 6c. Give the backend a storage drive for uploaded images
+Uploaded files (profile pictures, exercise images) need permanent storage or they
+vanish on restart.
 
-Uploaded files (profile pictures, exercise images) need a permanent place to live,
-otherwise they vanish whenever the app restarts.
-
-1. Still inside the **sparkyfitness-server** service, find **+ Create** within the
-   service, or right-click the service box → **Attach Volume** (also reachable via
-   the service's **Settings** or **Storage** area; look for **Volume**).
-2. When asked for the **Mount Path**, type **exactly**:
+1. In **sparkyfitness-server**, attach a **Volume** (right-click the service box →
+   **Attach Volume**, or find **Volume** under the service's **Settings**).
+2. Set the **Mount Path** to exactly:
    ```
    /app/SparkyFitnessServer/uploads
    ```
-3. Confirm. This attaches a small permanent disk at that location. (You can leave
-   the size at the default.)
+3. Confirm (default size is fine).
 
-> Optional: database backups are written nightly to
-> `/app/SparkyFitnessServer/backup`. If you want those to survive restarts too,
-> you can attach a second volume at that path. It's optional — your real safety net
-> for the database is Railway's own Postgres, and Part 11 covers backups.
+> Optional: nightly database backups are written to
+> `/app/SparkyFitnessServer/backup`. To keep those across restarts, attach a second
+> volume at that path. Optional — Part 12 covers backups.
 
-### 6d. Do NOT give the backend a public web address
+### 6e. Keep the backend private
 
-The backend should stay private (only the frontend talks to it). So **skip**
-generating a domain for this service. If you accidentally created one, open the
-service's **Settings → Networking** and remove the public domain. Leaving it
-private is both simpler and safer.
+The backend should not have its own public web address — only the frontend talks to
+it. So **do not** generate a domain here. If you accidentally made one, open
+**Settings → Networking** and remove it.
 
-The backend will start, connect to the database, and set everything up
-automatically. You can watch it in the **Deployments** tab (and **View Logs**). The
-first start takes a minute or two. It's normal to see it restart once or twice
-while the database finishes waking up.
+### 6f. Build and watch
+
+1. Trigger a build: click **Deploy** (top of canvas) if Railway shows pending
+   changes, or open the service → **Deployments** → **⋮ → Redeploy**.
+2. Open **Deployments → View Logs / Build Logs** to watch. The first build runs your
+   Dockerfile: installing dependencies and assembling the server. **This takes a few
+   minutes** — that's normal.
+3. After it builds, it starts up, connects to the database, and **runs your peptide
+   migration automatically** (you'll see migration messages in the logs). It's
+   normal to see one or two restarts on the very first launch while the database
+   finishes waking up.
 
 ---
 
-## Part 7 — Add the Frontend (the "dining room")
+## Part 7 — Add the Frontend (the "dining room"), built from your code
 
-### 7a. Create the service from the published image
+### 7a. Create a second service from the same repo
 
-1. Click **+ Create** on the canvas.
-2. Choose **Docker Image** again.
-3. Enter **exactly**:
+1. Click **+ Create** → **GitHub Repo** → pick **`wdeezy/SparkyFitness`** again.
+   (Yes, the same repo a second time — Railway happily runs two programs from one
+   repository.)
+2. Open the new box and rename it to something tidy like **sparkyfitness-frontend**
+   (this name isn't referenced elsewhere, so it can be anything).
+
+### 7b. Point it at the right branch and recipe
+
+1. **Settings → Source:** set **Branch** to the same branch as the backend
+   (`claude/hopeful-gates-AyC4Q`, or `main` if you merged).
+2. **Settings → Build:** leave **Root Directory** **empty/blank**.
+3. Add the recipe variable (next step includes it).
+
+### 7c. Add the frontend's settings
+
+1. Open the frontend's **Variables** tab → **Raw Editor**, paste, and save:
+
    ```
-   codewithcj/sparkyfitness:latest
-   ```
-   and confirm.
-4. Open the new box and rename the service to something clear like
-   **sparkyfitness-frontend** (this name is not referenced by anything, so it can
-   be whatever you like — just keep it tidy).
-
-### 7b. Tell the frontend its settings
-
-1. Open the **Variables** tab for the frontend service.
-2. Using the **Raw Editor**, paste this block and save:
-
-   ```
+   RAILWAY_DOCKERFILE_PATH=docker/Dockerfile.frontend
    SPARKY_FITNESS_SERVER_HOST=sparkyfitness-server.railway.internal
    SPARKY_FITNESS_SERVER_PORT=3010
    NGINX_LISTEN_PORT=8080
    SPARKY_FITNESS_FRONTEND_URL=https://placeholder.invalid
    ```
 
-   - `SPARKY_FITNESS_SERVER_HOST` is the private address of the kitchen. The form
-     `sparkyfitness-server.railway.internal` only works because you named the
-     backend service exactly `sparkyfitness-server` in Part 6. If you named it
-     differently, use `your-backend-name.railway.internal`.
-   - `NGINX_LISTEN_PORT=8080` tells the website which internal door to use. Keep
-     this number — you'll match it in the next step.
-   - Leave `SPARKY_FITNESS_FRONTEND_URL` as the placeholder for one more moment.
+   - `SPARKY_FITNESS_SERVER_HOST` is the backend's private address. The form
+     `sparkyfitness-server.railway.internal` works **only because** you named the
+     backend service exactly `sparkyfitness-server`. If you named it differently,
+     use `your-backend-name.railway.internal`.
+   - `NGINX_LISTEN_PORT=8080` sets the internal door the website listens on — match
+     it in the next step.
+   - Leave `SPARKY_FITNESS_FRONTEND_URL` as the placeholder one more moment.
 
-### 7c. Give the frontend a public web address
+### 7d. Give the frontend a public web address
 
-1. In the frontend service, open **Settings → Networking**.
+1. Open the frontend service → **Settings → Networking**.
 2. Under **Public Networking**, click **Generate Domain**.
-3. Railway asks which port to expose. Enter **8080** (matching `NGINX_LISTEN_PORT`
-   from the previous step). Confirm.
-4. Railway gives you a web address like
-   `https://sparkyfitness-frontend-production-xxxx.up.railway.app`.
-   **Copy this address** and paste it into your notes — this is your app's public
-   URL.
+3. When asked which port to expose, enter **8080** (matching `NGINX_LISTEN_PORT`).
+   Confirm.
+4. Railway gives you an address like
+   `https://sparkyfitness-frontend-production-xxxx.up.railway.app`. **Copy it** into
+   your notes — this is your app's public URL.
+
+### 7e. Build it
+
+Trigger the build (it will start automatically after saving settings, or use
+**Deployments → ⋮ → Redeploy**). This build compiles your React app — **a few
+minutes** — then serves it with a small web server (Nginx). Watch **Build Logs** if
+you like.
 
 ---
 
-## Part 8 — Connect the pieces together (the important final wiring)
+## Part 8 — Connect the pieces together (the crucial final wiring)
 
-Now that you know your public web address, you must tell **both** the backend and
-the frontend what it is. This is required for login and security to work.
+Now that you know your public address, tell **both** programs what it is. This is
+required for login and security.
 
-1. Open the **frontend** service → **Variables**. Change the
-   `SPARKY_FITNESS_FRONTEND_URL` line so it equals your real public address from
-   Part 7c, with **no slash at the end**. Example:
+1. **Frontend** service → **Variables**: set `SPARKY_FITNESS_FRONTEND_URL` to your
+   real public address from Part 7d, with **no slash at the end**, e.g.
    ```
    SPARKY_FITNESS_FRONTEND_URL=https://sparkyfitness-frontend-production-xxxx.up.railway.app
    ```
    Save.
 
-2. Open the **backend** (`sparkyfitness-server`) service → **Variables**. Change
-   its `SPARKY_FITNESS_FRONTEND_URL` to the **exact same** address. Save.
+2. **Backend** (`sparkyfitness-server`) → **Variables**: set its
+   `SPARKY_FITNESS_FRONTEND_URL` to the **exact same** address. Save.
 
-3. Both services will automatically redeploy when you save (or click **Deploy** /
-   the **Deploy** button at the top of the canvas if Railway shows "Apply
-   changes"). Wait for both to show a green/"Active" status.
+3. Both services redeploy when you save (or click **Deploy**). Wait for both to show
+   **Active / green**.
 
 > **Why both?** The backend uses this address as a security guard — it only accepts
-> requests coming from your real website and rejects everything else. If this
-> address is wrong or missing, you'll be able to load the page but logging in will
-> fail.
+> requests from your real website. If it's wrong or missing, the page loads but
+> login fails.
 
 ---
 
-## Part 9 — First login and locking it down
+## Part 9 — First login, then lock it down
 
-1. Open your public web address (from Part 7c) in your browser. You should see the
-   SparkyFitness login/welcome screen.
-2. Click to **create an account** and register with the **same email** you put in
-   `SPARKY_FITNESS_ADMIN_EMAIL`. Because of that setting, your account becomes the
-   administrator automatically.
-3. Log in and confirm everything works (try adding a food or a weight entry).
-4. **Close registration to the public:** go back to the **backend** service →
-   **Variables**, change:
+1. Open your public address in your browser. You should see the SparkyFitness
+   welcome/login screen.
+2. **Create an account** using the **same email** you put in
+   `SPARKY_FITNESS_ADMIN_EMAIL`. That makes your account the administrator.
+3. Log in. Confirm it works, then **find your Peptides page** (from your custom
+   build) and add a peptide to confirm your feature is live and the half-life math
+   runs.
+4. **Close public registration:** backend service → **Variables**, set:
    ```
    SPARKY_FITNESS_DISABLE_SIGNUP=true
    ```
-   Save and let it redeploy. Now no stranger can create an account, but you (and
-   anyone you deliberately invite) can still log in.
+   Save and let it redeploy. Now strangers can't register, but you still log in
+   normally.
 
-You're live. 🎉
-
----
-
-## Part 10 — Using your own web address (optional)
-
-By default your app lives at a long `...up.railway.app` address. You can point your
-own domain at it instead.
-
-**Recommended: use a sub-address (subdomain), like `fitness.yourname.com`.** This
-works with **zero code changes**. (Putting the app under a path like
-`yourname.com/fitness` is **not** supported without modifying the app's code, so
-avoid that.)
-
-1. Buy a domain from any registrar (Namecheap, Cloudflare, Google Domains, etc.) if
-   you don't already own one.
-2. In Railway: open the **frontend** service → **Settings → Networking → Custom
-   Domain** → **+ Custom Domain**. Type the sub-address you want, e.g.
-   `fitness.yourname.com`. Confirm.
-3. Railway shows you a **CNAME** record — two pieces of text: a **name/host** and a
-   **value/target**. (A "CNAME" is just a forwarding instruction in your domain's
-   settings.)
-4. Go to your domain registrar's website, find the **DNS settings** for your
-   domain, and **add a new CNAME record** using exactly the name and value Railway
-   showed you.
-5. Save at the registrar, then return to Railway. Within a few minutes (sometimes
-   up to an hour) Railway will verify it and automatically set up a secure
-   certificate (the padlock). The status turns green when ready.
-6. **Update the address everywhere:** change `SPARKY_FITNESS_FRONTEND_URL` to your
-   new `https://fitness.yourname.com` in **both** the frontend and backend
-   services (same as Part 8), and save. From now on, use your custom address to
-   reach the app.
+You're live with your own code. 🎉
 
 ---
 
-## Part 11 — Keeping it healthy (maintenance & cost control)
+## Part 10 — Automatic updates when you change your code
 
-**Set a spending limit so you're never surprised:**
-1. Click your account avatar (top right) → **Account Settings** (or **Workspace
-   Settings**) → **Usage** / **Billing**.
-2. Find **Usage Limits** and set a monthly hard cap (for example, $20). Railway can
-   email you as you approach it.
+Because Railway is connected to your branch, it can **rebuild and redeploy
+automatically every time you push new commits** to that branch.
 
-**Watch your cost:** the same Usage/Billing area shows a live estimate for the
-month, broken down by service.
+- This is usually on by default. To confirm: each service → **Settings → Source**
+  (or **Deploy Triggers**) → ensure deploys on push to your branch are enabled.
+- So your workflow becomes: change code on your computer → push to
+  `claude/hopeful-gates-AyC4Q` (or whichever branch you chose) → Railway rebuilds
+  both services → your update goes live in a few minutes.
+- Your data (in the database and the uploads volume) is preserved across rebuilds.
+- New database changes you add as migration files will run automatically on the
+  next backend start — just like your peptide migration did.
 
-**Updating to a newer version of SparkyFitness:** the images you used end in
-`:latest`. To pull the newest published version, open a service → **Deployments** →
-**Redeploy** (or the **⋮** menu → **Redeploy**). Do the backend first, then the
-frontend. Your data in the database and the uploads volume is preserved across
-redeploys.
-
-**Backups:** Railway's Postgres can be backed up from the **Postgres** service
-(look for a **Backups** option in its settings). The app also makes its own nightly
-database backup inside the backend (kept for 7 days). For real safety, occasionally
-download a backup and keep a copy somewhere off Railway.
-
-**Restarting something:** if a service misbehaves, open it → **Deployments** → use
-the **⋮** menu → **Restart** or **Redeploy**.
+> **Tip:** for a cleaner long-term setup, consider merging your branch into `main`
+> and pointing both services' **Branch** at `main`. Then `main` is your "live"
+> version and you deploy by merging into it.
 
 ---
 
-## Part 12 — If something goes wrong (troubleshooting)
+## Part 11 — Using your own web address (optional)
 
-Open the misbehaving service → **Deployments** → **View Logs** to see messages.
-Common situations:
+By default your app is at a long `...up.railway.app` address. You can use your own.
 
-- **The website loads, but logging in fails / "network error" / CORS error.**
-  `SPARKY_FITNESS_FRONTEND_URL` is wrong or mismatched. Make sure it is the **exact**
-  public address (starts with `https://`, **no** trailing slash) and is **identical**
-  in both the frontend and backend services. Redeploy both after fixing.
+**Recommended: a sub-address (subdomain) like `fitness.yourname.com`** — works with
+**zero code changes**. (A path like `yourname.com/fitness` is **not** supported
+without modifying the app, so avoid that.)
 
-- **The website shows "502 Bad Gateway" or a blank/error page.**
-  The frontend can't reach the backend. Check that:
-  (a) the backend service is **Active/green** (it must be fully started first), and
-  (b) the frontend's `SPARKY_FITNESS_SERVER_HOST` exactly matches the backend's
-  service name followed by `.railway.internal`, and `SPARKY_FITNESS_SERVER_PORT`
-  is `3010`. After the backend is healthy, **Redeploy the frontend** so it
-  reconnects.
+1. Own a domain (Namecheap, Cloudflare, etc.).
+2. Railway: **frontend** service → **Settings → Networking → Custom Domain →
+   + Custom Domain**. Enter e.g. `fitness.yourname.com`. Confirm.
+3. Railway shows a **CNAME** record (a **name/host** and a **value/target**). A
+   "CNAME" is just a forwarding instruction for your domain.
+4. At your domain registrar, open the domain's **DNS settings** and **add a new
+   CNAME record** with exactly the name and value Railway gave you. Save.
+5. Back in Railway, within minutes (sometimes up to an hour) it verifies and sets up
+   the secure padlock automatically; the status turns green.
+6. **Update the address everywhere:** set `SPARKY_FITNESS_FRONTEND_URL` to
+   `https://fitness.yourname.com` in **both** the frontend and backend services
+   (as in Part 8). From then on, use your custom address.
 
-- **The public address won't open at all.**
-  Make sure you generated a domain for the **frontend** and set its port to **8080**
-  (matching `NGINX_LISTEN_PORT=8080`). Re-check **Settings → Networking**.
+---
 
-- **The backend keeps restarting / "Missing required environment variables".**
-  A required setting is missing or blank. Double-check the backend Variables block
-  from Part 6b — especially that the `${{Postgres....}}` lines are typed exactly
-  and the Postgres service is still named **Postgres**.
+## Part 12 — Maintenance & cost control
 
-- **Database connection errors right after first deploy.**
+**Set a spending cap:** account avatar (top right) → **Account/Workspace Settings**
+→ **Usage / Billing** → **Usage Limits** → set a monthly hard cap (e.g. $20).
+Railway can email you as you approach it.
+
+**Watch your cost:** the same Usage/Billing area shows a live monthly estimate per
+service.
+
+**Update the app:** push new commits to your branch (Part 10), or manually
+**Deployments → ⋮ → Redeploy** a service. Do the backend first, then the frontend.
+
+**Backups:** Railway's Postgres has its own backup option in the **Postgres**
+service settings. Your app also writes a nightly database backup (kept 7 days)
+inside the backend. For real safety, occasionally download a backup and store a
+copy off Railway.
+
+**Restart something:** service → **Deployments → ⋮ → Restart** or **Redeploy**.
+
+---
+
+## Part 13 — If something goes wrong (troubleshooting)
+
+Open the misbehaving service → **Deployments → View Logs** (use **Build Logs** for
+build problems, **Deploy Logs** for run-time problems).
+
+- **A build fails.**
+  Check the **Build Logs**. Most common causes:
+  (a) Wrong recipe path — confirm `RAILWAY_DOCKERFILE_PATH` is exactly
+  `docker/Dockerfile.backend` (backend) or `docker/Dockerfile.frontend` (frontend).
+  (b) **Root Directory** was set to a subfolder — it must be **empty/blank** so the
+  whole repo is the build context.
+  (c) Wrong branch selected — confirm the **Branch** is the one with your code.
+  (d) A "frozen-lockfile" error means your `pnpm-lock.yaml` is out of sync with a
+  `package.json` change; run `pnpm install` locally, commit the updated lockfile,
+  and push.
+
+- **Website loads but login fails / "network error" / CORS error.**
+  `SPARKY_FITNESS_FRONTEND_URL` is wrong or mismatched. It must be your exact public
+  address (`https://`, **no** trailing slash) and **identical** in both services.
+  Redeploy both after fixing.
+
+- **"502 Bad Gateway" or blank/error page.**
+  The frontend can't reach the backend. Confirm (a) the backend is **Active/green**,
+  and (b) the frontend's `SPARKY_FITNESS_SERVER_HOST` equals the backend's service
+  name + `.railway.internal`, with `SPARKY_FITNESS_SERVER_PORT=3010`. After the
+  backend is healthy, **Redeploy the frontend**.
+
+- **Public address won't open at all.**
+  Make sure you generated the domain on the **frontend** and set its port to
+  **8080** (matching `NGINX_LISTEN_PORT=8080`). Re-check **Settings → Networking**.
+
+- **Backend keeps restarting / "Missing required environment variables."**
+  A required setting is blank. Re-check the backend Variables from Part 6c —
+  especially that the `${{Postgres....}}` lines are exact and the database service
+  is still named **Postgres**.
+
+- **Peptide page is missing or empty.**
+  This almost always means Railway built the **wrong branch** (one without your
+  code) or an old commit. Confirm both services' **Branch** is
+  `claude/hopeful-gates-AyC4Q` (or wherever your code is) and **Redeploy**. In the
+  backend's logs you should see your peptide migration
+  (`20260530120000_add_peptide_tracking.sql`) being applied on first run.
+
+- **Database errors right after first deploy.**
   The database may still be starting. Wait two minutes and **Redeploy** the backend.
-  It's normal to see one or two restarts on the very first launch.
 
 - **Uploaded pictures disappear after a redeploy.**
-  The uploads volume isn't attached, or is at the wrong path. Confirm a volume is
-  attached to the backend at exactly `/app/SparkyFitnessServer/uploads` (Part 6c).
+  The uploads volume isn't attached or is at the wrong path. Confirm a volume is on
+  the backend at exactly `/app/SparkyFitnessServer/uploads` (Part 6d).
 
 ---
 
 ## Quick reference — what goes where
 
-**Postgres service:** no configuration needed; keep its name as `Postgres`.
+**Source for BOTH app services:** GitHub repo `wdeezy/SparkyFitness`, branch
+`claude/hopeful-gates-AyC4Q` (or `main` if you merged), **Root Directory blank**.
+
+**Postgres service:** no configuration; keep its name exactly `Postgres`.
 
 **Backend service** — name it exactly `sparkyfitness-server`. Variables:
 
 | Variable | Value |
 | --- | --- |
+| `RAILWAY_DOCKERFILE_PATH` | `docker/Dockerfile.backend` |
 | `SPARKY_FITNESS_DB_HOST` | `${{Postgres.PGHOST}}` |
 | `SPARKY_FITNESS_DB_PORT` | `${{Postgres.PGPORT}}` |
 | `SPARKY_FITNESS_DB_NAME` | `${{Postgres.PGDATABASE}}` |
@@ -485,13 +545,14 @@ Common situations:
 | `TZ` | your timezone, e.g. `America/New_York` |
 | `SPARKY_FITNESS_FRONTEND_URL` | your public address (set in Part 8) |
 
-- Volume mounted at `/app/SparkyFitnessServer/uploads`
+- Volume at `/app/SparkyFitnessServer/uploads`
 - **No** public domain
 
 **Frontend service** — public-facing. Variables:
 
 | Variable | Value |
 | --- | --- |
+| `RAILWAY_DOCKERFILE_PATH` | `docker/Dockerfile.frontend` |
 | `SPARKY_FITNESS_SERVER_HOST` | `sparkyfitness-server.railway.internal` |
 | `SPARKY_FITNESS_SERVER_PORT` | `3010` |
 | `NGINX_LISTEN_PORT` | `8080` |

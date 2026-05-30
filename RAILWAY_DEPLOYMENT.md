@@ -56,9 +56,10 @@ public door that you and your phone walk through.
 
 ### Why "build from your code" matters
 
-Your custom work lives on a **branch** named **`claude/hopeful-gates-AyC4Q`** in
-your GitHub repository **`wdeezy/SparkyFitness`**. (A "branch" is just a named
-version of your code.) That branch contains, among other things:
+Your custom work lives on the **`main` branch** of your GitHub repository
+**`wdeezy/SparkyFitness`**. (A "branch" is just a named version of your code;
+`main` is the standard name for the primary, live one.) `main` already contains,
+among other things:
 
 - `SparkyFitnessServer/services/peptideService.ts`,
   `models/peptideRepository.ts`, `routes/peptideRoutes.ts`,
@@ -69,8 +70,10 @@ version of your code.) That branch contains, among other things:
 - `SparkyFitnessFrontend/src/pages/Peptides/Peptides.tsx` and friends — the
   Peptides web page.
 
-Railway will read this branch, **compile it into runnable programs**, and start
-them. That compiling step is called a **"build."**
+Railway will read your `main` branch, **compile it into runnable programs**, and
+start them. That compiling step is called a **"build."** Better still: once this is
+set up, **anything you later merge into `main` deploys automatically** — you never
+have to touch Railway's settings again (see Part 10).
 
 > **Jargon, defined once:**
 > - **Deploy** = put it online and start it running.
@@ -206,13 +209,13 @@ the peptide tables) the first time it runs.
 ### 6b. Point it at the right branch and the right build recipe
 
 1. With **sparkyfitness-server** open, click the **Settings** tab.
-2. Under the **Source** / **Service Source** area, set the **Branch** to the branch
-   that contains your code:
+2. Under the **Source** / **Service Source** area, set the **Branch** to:
    ```
-   claude/hopeful-gates-AyC4Q
+   main
    ```
-   (If you have since merged your work into `main`, choose `main` instead. The point
-   is: pick the branch that has your peptide code.)
+   This is your live code (your peptide tracking is already merged into `main`).
+   From now on, every time you merge new work into `main`, Railway rebuilds this
+   service automatically.
 3. Still in **Settings**, find the **Build** section. Leave **Root Directory**
    **empty/blank** — your Dockerfiles expect the whole repository as their starting
    point. (Do **not** set Root Directory to a subfolder; the build will break if you
@@ -313,8 +316,8 @@ it. So **do not** generate a domain here. If you accidentally made one, open
 
 ### 7b. Point it at the right branch and recipe
 
-1. **Settings → Source:** set **Branch** to the same branch as the backend
-   (`claude/hopeful-gates-AyC4Q`, or `main` if you merged).
+1. **Settings → Source:** set **Branch** to `main` (the same branch as the
+   backend).
 2. **Settings → Build:** leave **Root Directory** **empty/blank**.
 3. Add the recipe variable (next step includes it).
 
@@ -403,21 +406,22 @@ You're live with your own code. 🎉
 
 ## Part 10 — Automatic updates when you change your code
 
-Because Railway is connected to your branch, it can **rebuild and redeploy
-automatically every time you push new commits** to that branch.
+This is the part you specifically wanted: because both services are connected to
+**`main`**, Railway **rebuilds and redeploys automatically every time `main`
+changes** — you never have to reconfigure Railway again.
 
-- This is usually on by default. To confirm: each service → **Settings → Source**
-  (or **Deploy Triggers**) → ensure deploys on push to your branch are enabled.
-- So your workflow becomes: change code on your computer → push to
-  `claude/hopeful-gates-AyC4Q` (or whichever branch you chose) → Railway rebuilds
-  both services → your update goes live in a few minutes.
-- Your data (in the database and the uploads volume) is preserved across rebuilds.
-- New database changes you add as migration files will run automatically on the
-  next backend start — just like your peptide migration did.
+- It's on by default. To confirm: each service → **Settings → Source** (or **Deploy
+  Triggers**) → ensure "deploy on push to `main`" is enabled.
+- So your workflow is simply: do your work on a side branch → **merge it into
+  `main`** (e.g. via a pull request on GitHub) → Railway notices, rebuilds **both**
+  services from the new `main`, and your update goes live in a few minutes. No
+  Railway changes needed, ever.
+- Your data (database + uploads volume) is preserved across rebuilds.
+- Any new database migration files you add will run automatically on the next
+  backend start — just like your peptide migration did the first time.
 
-> **Tip:** for a cleaner long-term setup, consider merging your branch into `main`
-> and pointing both services' **Branch** at `main`. Then `main` is your "live"
-> version and you deploy by merging into it.
+> You can keep developing on feature branches and only merge to `main` when you're
+> happy. `main` is your "live" version; merging into it is your "publish" button.
 
 ---
 
@@ -502,11 +506,10 @@ build problems, **Deploy Logs** for run-time problems).
   is still named **Postgres**.
 
 - **Peptide page is missing or empty.**
-  This almost always means Railway built the **wrong branch** (one without your
-  code) or an old commit. Confirm both services' **Branch** is
-  `claude/hopeful-gates-AyC4Q` (or wherever your code is) and **Redeploy**. In the
-  backend's logs you should see your peptide migration
-  (`20260530120000_add_peptide_tracking.sql`) being applied on first run.
+  This almost always means Railway built an **old commit** or the wrong branch.
+  Confirm both services' **Branch** is `main` and **Redeploy**. In the backend's
+  logs on first run you should see your peptide migration
+  (`20260530120000_add_peptide_tracking.sql`) being applied.
 
 - **Database errors right after first deploy.**
   The database may still be starting. Wait two minutes and **Redeploy** the backend.
@@ -520,7 +523,8 @@ build problems, **Deploy Logs** for run-time problems).
 ## Quick reference — what goes where
 
 **Source for BOTH app services:** GitHub repo `wdeezy/SparkyFitness`, branch
-`claude/hopeful-gates-AyC4Q` (or `main` if you merged), **Root Directory blank**.
+`main`, **Root Directory blank**. (Both services auto-redeploy on every push/merge
+to `main`.)
 
 **Postgres service:** no configuration; keep its name exactly `Postgres`.
 

@@ -21,6 +21,22 @@ else
          /etc/nginx/conf.d
 fi
 
+# Derive the DNS resolver nginx uses to re-resolve the backend at request time.
+# nginx caches upstream IPs at startup, but platforms like Railway assign a new
+# internal IP on every redeploy, so the backend must be resolved dynamically.
+# Prefer an explicit NGINX_RESOLVER override; otherwise use the first nameserver
+# from the container's /etc/resolv.conf, falling back to Docker's embedded DNS.
+if [ -z "${NGINX_RESOLVER}" ]; then
+    NGINX_RESOLVER=$(awk '/^nameserver/ { print $2; exit }' /etc/resolv.conf 2>/dev/null || true)
+fi
+NGINX_RESOLVER=${NGINX_RESOLVER:-127.0.0.11}
+# Bracket bare IPv6 resolver addresses (those containing ':') for nginx syntax.
+case "${NGINX_RESOLVER}" in
+    \[*\]) ;;                                   # already bracketed
+    *:*) NGINX_RESOLVER="[${NGINX_RESOLVER}]" ;;
+esac
+export NGINX_RESOLVER
+
 echo "Starting SparkyFitness Frontend as ${NGINX_PERMISSION_MODE} with environment variables:"
 echo "  SPARKY_FITNESS_SERVER_HOST=${SPARKY_FITNESS_SERVER_HOST}"
 echo "  SPARKY_FITNESS_SERVER_PORT=${SPARKY_FITNESS_SERVER_PORT}"
@@ -29,11 +45,12 @@ echo "  NGINX_LISTEN_PORT=${NGINX_LISTEN_PORT}"
 echo "  NGINX_ACCESS_LOG=${NGINX_ACCESS_LOG}"
 echo "  NGINX_ERROR_LOG=${NGINX_ERROR_LOG}"
 echo "  NGINX_DUMP_CONFIG=${NGINX_DUMP_CONFIG:-false}"
+echo "  NGINX_RESOLVER=${NGINX_RESOLVER}"
 echo "  SPARKY_FITNESS_FRONTEND_URL=${SPARKY_FITNESS_FRONTEND_URL}"
 
 # Substitute environment variables in the nginx template
 echo "Generating nginx configuration from template..."
-envsubst "\$SPARKY_FITNESS_SERVER_HOST \$SPARKY_FITNESS_SERVER_PORT \$NGINX_RATE_LIMIT \$SPARKY_FITNESS_FRONTEND_URL \$NGINX_LISTEN_PORT \$NGINX_ACCESS_LOG \$NGINX_ERROR_LOG" < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
+envsubst "\$SPARKY_FITNESS_SERVER_HOST \$SPARKY_FITNESS_SERVER_PORT \$NGINX_RATE_LIMIT \$SPARKY_FITNESS_FRONTEND_URL \$NGINX_LISTEN_PORT \$NGINX_ACCESS_LOG \$NGINX_ERROR_LOG \$NGINX_RESOLVER" < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
 
 # Test that substitution worked properly
 echo "Testing nginx configuration substitution..."

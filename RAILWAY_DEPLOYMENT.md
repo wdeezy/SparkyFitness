@@ -504,6 +504,11 @@ build problems, **Deploy Logs** for run-time problems).
   up-to-date code and **Redeploy** it. (On the rare host with IPv6 disabled, set
   `SPARKY_FITNESS_SERVER_BIND_HOST=0.0.0.0` on the backend instead.)
 
+  The frontend now re-resolves the backend's address at request time (every 10s),
+  so a backend redeploy no longer requires a manual frontend redeploy to clear
+  502s. The DNS resolver is taken from the container automatically; if your host
+  needs a specific one, set `NGINX_RESOLVER` on the frontend service.
+
 - **Public address won't open at all.**
   Make sure you generated the domain on the **frontend** and set its port to
   **8080** (matching `NGINX_LISTEN_PORT=8080`). Re-check **Settings → Networking**.

@@ -7339,6 +7339,34 @@ ALTER DEFAULT PRIVILEGES FOR ROLE sparky IN SCHEMA public GRANT SELECT,INSERT,DE
 
 
 --
+-- Peptide / injection tracking (see migration 20260530120000_add_peptide_tracking.sql).
+-- RLS owner-only policies for these tables are defined in db/rls_policies.sql.
+CREATE TABLE IF NOT EXISTS public.peptides (
+    id UUID DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    half_life_hours NUMERIC(10, 3) NOT NULL,
+    default_dose NUMERIC(12, 4),
+    dose_unit VARCHAR(20) NOT NULL DEFAULT 'mg',
+    color VARCHAR(20),
+    notes TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.peptide_injections (
+    id UUID DEFAULT gen_random_uuid() NOT NULL PRIMARY KEY,
+    user_id UUID NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,
+    peptide_id UUID NOT NULL REFERENCES public.peptides(id) ON DELETE CASCADE,
+    dose NUMERIC(12, 4) NOT NULL,
+    dose_unit VARCHAR(20) NOT NULL DEFAULT 'mg',
+    injection_site VARCHAR(100),
+    injected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    notes TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- PostgreSQL database dump complete
 --
 

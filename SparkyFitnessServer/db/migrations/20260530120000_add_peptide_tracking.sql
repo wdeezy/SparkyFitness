@@ -38,16 +38,10 @@ CREATE INDEX IF NOT EXISTS idx_peptide_injections_user_peptide
 CREATE INDEX IF NOT EXISTS idx_peptide_injections_user_time
     ON public.peptide_injections(user_id, injected_at);
 
--- 3. Row Level Security (owner-only; mirrors create_owner_policy in rls_policies.sql)
-ALTER TABLE public.peptides ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.peptide_injections ENABLE ROW LEVEL SECURITY;
-
-DROP POLICY IF EXISTS owner_policy ON public.peptides;
-CREATE POLICY owner_policy ON public.peptides FOR ALL TO PUBLIC
-    USING (user_id = current_user_id())
-    WITH CHECK (user_id = current_user_id());
-
-DROP POLICY IF EXISTS owner_policy ON public.peptide_injections;
-CREATE POLICY owner_policy ON public.peptide_injections FOR ALL TO PUBLIC
-    USING (user_id = current_user_id())
-    WITH CHECK (user_id = current_user_id());
+-- 3. Row Level Security
+-- RLS is intentionally NOT defined here. The helper functions it relies on
+-- (e.g. current_user_id()) are created by db/rls_policies.sql, which the server
+-- applies AFTER all migrations. That file is the single source of truth for RLS:
+-- it purges and re-creates every public-schema policy on each startup, so any
+-- policy defined in a migration would be wiped anyway. The owner-only policies
+-- and RLS enablement for these two tables live in db/rls_policies.sql.

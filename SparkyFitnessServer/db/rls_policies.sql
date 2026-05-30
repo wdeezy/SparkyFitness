@@ -73,7 +73,9 @@ BEGIN
     'user_custom_nutrients',
     'sleep_need_calculations',
     'daily_sleep_need',
-    'day_classification_cache'
+    'day_classification_cache',
+    'peptides',
+    'peptide_injections'
   ]::text[])
   LOOP
     EXECUTE 'ALTER TABLE public.' || quote_ident(table_name) || ' ENABLE ROW LEVEL SECURITY;';
@@ -501,3 +503,7 @@ WITH CHECK (
 SELECT create_owner_policy('sleep_need_calculations');
 SELECT create_owner_policy('daily_sleep_need');
 SELECT create_owner_policy('day_classification_cache');
+
+-- Peptide / injection tracking (owner-only; see migration 20260530120000)
+SELECT create_owner_policy('peptides');
+SELECT create_owner_policy('peptide_injections');

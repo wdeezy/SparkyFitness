@@ -73,3 +73,13 @@ export const workoutPresetsLibraryQueryKey = (searchTerm: string) =>
   ['workoutPresetsLibrary', searchTerm] as const;
 
 export const activeAiServiceSettingQueryKey = ['ai-service-settings', 'active'] as const;
+
+export const peptidesQueryKey = ['peptides'] as const;
+
+export const peptideLevelsQueryKey = ['peptideLevels'] as const;
+
+export const peptideSeriesQueryKey = (peptideId: string) =>
+  ['peptideSeries', peptideId] as const;
+
+export const peptideInjectionsQueryKey = (peptideId: string) =>
+  ['peptideInjections', peptideId] as const;

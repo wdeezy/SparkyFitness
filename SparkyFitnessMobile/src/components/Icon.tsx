@@ -106,6 +106,10 @@ const ICON_MAP = {
   'logs': { sf: 'doc.plaintext', ion: 'document-text-outline' },
   'about': { sf: 'info.circle', ion: 'information-circle-outline' },
   'sparkle': { sf: 'sparkles', ion: 'sparkles-outline' },
+
+  // Peptides
+  'peptides': { sf: 'syringe', ion: 'medical-outline' },
+  'trash': { sf: 'trash', ion: 'trash-outline' },
 } as const;
 
 export type IconName = keyof typeof ICON_MAP;

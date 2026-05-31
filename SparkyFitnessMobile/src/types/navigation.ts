@@ -147,6 +147,7 @@ export type RootStackParamList = {
   ActivityAdd: { entry?: IndividualSessionResponse; date?: string; popCount?: number; selectedExercise?: Exercise; selectionNonce?: number; skipDraftLoad?: boolean } | undefined;
   WorkoutDetail: { session: PresetSessionResponse; selectedExercise?: Exercise; selectionNonce?: number };
   ActivityDetail: { session: IndividualSessionResponse };
+  Peptides: undefined;
   Logs: undefined;
   Sync: undefined;
   MeasurementsAdd: { date?: string } | undefined;

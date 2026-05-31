@@ -10,6 +10,7 @@ import DateNavigator from '../components/DateNavigator';
 import FoodSummary from '../components/FoodSummary';
 import ExerciseSummary from '../components/ExerciseSummary';
 import MeasurementsSummary from '../components/MeasurementsSummary';
+import PeptideSummary from '../components/PeptideSummary';
 import { addSheetRef } from '../components/AddSheet';
 import CalendarSheet, { type CalendarSheetRef } from '../components/CalendarSheet';
 import ServingAdjustSheet, { type ServingAdjustSheetRef } from '../components/ServingAdjustSheet';
@@ -210,6 +211,10 @@ const DiaryScreen: React.FC<DiaryScreenProps> = ({ navigation }) => {
             />
           </>
         )}
+        <PeptideSummary
+          enabled={isConnected}
+          onPress={() => navigation.navigate('Peptides')}
+        />
       </ScrollView>
     );
   };

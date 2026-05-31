@@ -32,6 +32,10 @@ jest.mock('../../src/components/ActiveWorkoutBar', () => ({
   useActiveWorkoutBarPadding: jest.fn(() => 0),
 }));
 
+jest.mock('../../src/hooks/usePeptides', () => ({
+  usePeptides: jest.fn(() => ({ data: [], refetch: jest.fn() })),
+}));
+
 const mockUseFoods = useFoods as jest.MockedFunction<typeof useFoods>;
 const mockUseMeals = useMeals as jest.MockedFunction<typeof useMeals>;
 const mockUseRecentMeals = useRecentMeals as jest.MockedFunction<typeof useRecentMeals>;
